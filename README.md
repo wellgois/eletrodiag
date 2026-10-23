@@ -2,7 +2,9 @@
 
 Diagnóstico guiado de defeitos em circuitos eletrônicos, construído como um projeto de **engenharia de dados em arquitetura medalhão** (bronze → silver → gold) com uma camada de **BI** no final.
 
-> **Status:** Fase 1 (MVP). Todos os números de eficiência deste repositório vêm de **sessões sintéticas** (estudantes simulados com comportamento assumido). Servem para validar a arquitetura e o motor de diagnóstico, não como prova de ganho com estudantes reais. Veja [Limitações](#limitações-e-honestidade).
+**Demonstração ao vivo:** [app](https://multimetro.wellgois.com/) · [painel de BI](https://multimetro.wellgois.com/painel/)
+
+> **Status:** protótipo funcional com 10 circuitos (5 básicos e 5 blocos de um inversor CC-CA), sem estudantes reais ainda. Todos os números de eficiência deste repositório vêm de **sessões sintéticas** (estudantes simulados com comportamento assumido). Servem para validar a arquitetura e o motor de diagnóstico, não como prova de ganho com estudantes reais. Veja [Limitações](#limitações-e-honestidade).
 
 ## O problema e a ideia
 
@@ -62,7 +64,7 @@ Requisitos: Python 3.11+ (testado em 3.13). Node 18+ só para o teste de paridad
 ```bash
 pip install -r requirements.txt
 make demo            # pipeline completo do zero (~25 s), gera app e painel
-make test            # 39 testes
+make test            # 58 testes
 ```
 
 Sem `make`:
@@ -187,7 +189,13 @@ Cobrem: leis de circuito (divisor, LED, polarização BJT, zener), MOSFET e regu
 
 ## Roadmap
 
-Resumo (detalhes em [roadmap.md](docs/roadmap.md)): piloto com estudantes reais, endpoint de ingestão, multímetro Bluetooth, mais circuitos, orquestração (Airflow/Dagster), dbt para a gold, tabelas em Delta/Iceberg quando o volume justificar.
+Resumo (detalhes em [roadmap.md](docs/roadmap.md)):
+
+1. **Teste a frio** (diodo, resistência, continuidade) como novo tipo de medição, para separar os defeitos que não aparecem com o circuito energizado.
+2. **Medição manual e por Bluetooth**: o mesmo app aceita leitura digitada e leitura enviada por um multímetro com Bluetooth, com a origem registrada em cada evento.
+3. **Fotos da placa** para ajudar a reconstruir o esquema de aparelhos sem diagrama publicado, sempre como hipótese a ser conferida pelo usuário.
+4. **Biblioteca de componentes originais e similares**: ao apontar o defeito, o app lista substitutos com o grau de compatibilidade e o que conferir antes de soldar.
+5. Piloto com estudantes reais, endpoint de ingestão, orquestração (Airflow/Dagster), dbt para a gold e tabelas em Delta/Iceberg quando o volume justificar.
 
 ## Estrutura
 
