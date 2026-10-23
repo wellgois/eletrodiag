@@ -1,0 +1,15 @@
+[project]
+name = "eletrodiag"
+version = "0.1.0"
+description = "Diagnóstico de defeitos em circuitos eletrônicos com pipeline de dados em arquitetura medalhão"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = ["numpy>=2.0", "pandas>=2.2", "pyarrow>=15", "duckdb>=1.0", "tzdata"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

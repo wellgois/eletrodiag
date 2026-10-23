@@ -1,0 +1,272 @@
+<title>Painel EletroDiag</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: filtro no topo, indicadores, depois gráficos e tabelas que respondem ao mesmo filtro. */
+:root {
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,0.10); --good-text: #006300; --bad-text: #b3261e;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --warn-bg: #fbebcd; --accent: #2a78d6;
+  --font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10); --good-text: #0ca30c; --bad-text: #ff8a80;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --warn-bg: #3a2c10; --accent: #3987e5; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10); --good-text: #0ca30c; --bad-text: #ff8a80;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --warn-bg: #3a2c10; --accent: #3987e5; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.5 var(--font); padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1040px; margin: 0 auto; display: grid; gap: 16px; }
+h1, h2, h3, p { margin: 0; }
+h1 { font-size: 1.3rem; font-weight: 600; }
+h2 { font-size: 1rem; font-weight: 600; }
+.sub { color: var(--ink2); font-size: 0.9rem; }
+.banner { background: var(--warn-bg); border-radius: 8px; padding: 10px 12px; font-size: 0.88rem; }
+.filters { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: end; }
+.filters label { display: grid; gap: 4px; font-size: 0.8rem; color: var(--ink2); }
+select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--grid); border-radius: 7px; padding: 8px 10px; min-width: 240px; max-width: 100%; }
+select:focus-visible, summary:focus-visible, .hit:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tiles { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.card { background: var(--surface); border: 1px solid var(--ring); border-radius: 10px; padding: 16px; min-width: 0; display: grid; gap: 10px; align-content: start; }
+.tile .lbl { color: var(--ink2); font-size: 0.85rem; }
+.tile .val { font-size: 2rem; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
+.tile .delta { font-size: 0.85rem; }
+.good { color: var(--good-text); }
+.bad { color: var(--bad-text); }
+.note { color: var(--muted); font-size: 0.8rem; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.85rem; color: var(--ink2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.legend i.ln { height: 2px; width: 16px; border-radius: 1px; }
+.grid2 { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 900px) { .grid2 { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; } }
+.group { display: grid; gap: 3px; padding-block: 8px; border-top: 1px solid var(--grid); }
+.group:first-of-type { border-top: 0; }
+.group .gname { font-size: 0.85rem; color: var(--ink2); margin-bottom: 2px; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) 46px; align-items: center; gap: 8px; }
+.hit { display: block; padding-block: 1px; border-radius: 4px; cursor: default; }
+.track { height: 18px; }
+.bar { height: 18px; border-radius: 0 4px 4px 0; min-width: 2px; transition: opacity 0.15s; }
+.hit:hover .bar, .hit:focus-visible .bar { opacity: 0.8; }
+.rv { font: 500 0.82rem var(--mono); text-align: left; color: var(--ink); }
+svg text { fill: var(--muted); font: 11px var(--font); }
+.tip { position: fixed; z-index: 20; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--axis);
+  border-radius: 8px; padding: 8px 10px; font-size: 0.82rem; box-shadow: 0 4px 14px rgba(0,0,0,0.18); max-width: 260px; }
+.tip b { font: 500 0.9rem var(--mono); }
+.tip .k { display: inline-block; width: 12px; height: 2px; margin-right: 6px; vertical-align: middle; }
+.tip .nm { color: var(--ink2); }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+th, td { text-align: left; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { font-size: 0.75rem; color: var(--ink2); font-weight: 500; white-space: nowrap; }
+td.n { font-family: var(--mono); white-space: nowrap; }
+.pill { display: inline-flex; gap: 4px; align-items: center; font-size: 0.78rem; border: 1px solid var(--axis); border-radius: 99px; padding: 1px 8px; white-space: nowrap; }
+details { border-top: 1px solid var(--grid); padding-top: 8px; }
+summary { cursor: pointer; color: var(--ink2); font-size: 0.85rem; }
+</style>
+<!--BODY-->
+<div class="wrap">
+  <header style="display:grid;gap:4px">
+    <h1>Painel de eficiência do diagnóstico</h1>
+    <p class="sub" id="meta"></p>
+  </header>
+  <p class="banner" id="banner" role="note"></p>
+
+  <div class="filters">
+    <label>Circuito<select id="circ"></select></label>
+  </div>
+
+  <section class="tiles" id="tiles" aria-label="Indicadores"></section>
+
+  <div class="grid2">
+    <section class="card" aria-labelledby="hA">
+      <h2 id="hA">Passos até a troca do componente</h2>
+      <p class="sub">Média por sessão concluída. Menos é melhor.</p>
+      <div class="legend" id="legA"></div>
+      <div id="chartA"></div>
+      <details><summary>Ver como tabela</summary><div class="tbl" id="tblA"></div></details>
+    </section>
+    <section class="card" aria-labelledby="hB">
+      <h2 id="hB">Acerto do suspeito principal a cada medição</h2>
+      <p class="sub">Percentual de sessões em que o suspeito nº 1 é o componente defeituoso.</p>
+      <div class="legend" id="legB"></div>
+      <div id="chartB"></div>
+      <p class="note">O número de sessões cai a cada passo: quem já decidiu sai da amostra.</p>
+      <details><summary>Ver como tabela</summary><div class="tbl" id="tblB"></div></details>
+    </section>
+  </div>
+
+  <section class="card" aria-labelledby="hC">
+    <h2 id="hC">Defeitos que só a medição de tensão não separa</h2>
+    <p class="sub" id="cSum"></p>
+    <div class="tbl" id="tblC"></div>
+  </section>
+
+  <section class="card" aria-labelledby="hD">
+    <h2 id="hD">Saúde do pipeline de dados</h2>
+    <p class="sub">Última execução de cada regra de qualidade, por camada.</p>
+    <div class="tbl" id="tblD"></div>
+  </section>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+const DATA = /*__DATA__*/null;
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const MODE = { guiado: { name: "Guiado pelo app", c: "var(--s1)" },
+    medicao_aleatoria: { name: "Medição em ordem aleatória", c: "var(--s2)" },
+    componente_a_componente: { name: "Componente a componente (método atual)", c: "var(--s3)" } };
+  const ORDER = ["guiado", "medicao_aleatoria", "componente_a_componente"];
+  const CLS = { requer_corrente: "Exige medir corrente", indistinguivel_eletricamente: "Indistinguível só com multímetro" };
+  const pt = (n, d = 1) => n.toFixed(d).replace(".", ",");
+  const pct = (x) => Math.round(x * 100) + "%";
+  const el = (tag, props = {}, kids = []) => { const e = document.createElement(tag); Object.assign(e, props);
+    [].concat(kids).forEach((k) => e.append(k)); return e; };
+  const tip = $("tip");
+  function showTip(evt, nodes) {
+    tip.replaceChildren(...nodes); tip.hidden = false;
+    const r = tip.getBoundingClientRect();
+    let x = evt.clientX + 14, y = evt.clientY + 14;
+    if (x + r.width > innerWidth - 8) x = evt.clientX - r.width - 14;
+    if (y + r.height > innerHeight - 8) y = evt.clientY - r.height - 14;
+    tip.style.left = Math.max(8, x) + "px"; tip.style.top = Math.max(8, y) + "px";
+  }
+  const hideTip = () => (tip.hidden = true);
+  const key = (mode) => { const k = el("span", { className: "k" }); k.style.background = MODE[mode].c; return k; };
+
+  $("meta").textContent = `${DATA.meta.sessions.toLocaleString("pt-BR")} sessões · dicionário ${DATA.meta.dictionary_version} · gerado em ${DATA.meta.generated}`;
+  $("banner").textContent = "Dados sintéticos: as sessões são simuladas com comportamentos assumidos (veja docs/assumptions.md). O painel valida a arquitetura e o motor de diagnóstico. Não é evidência com estudantes reais.";
+  $("circ").append(el("option", { value: "(todos)", textContent: "Todos os circuitos" }),
+    ...DATA.circuits.map((c) => el("option", { value: c.id, textContent: c.nome })));
+  const legend = (id, kind, modes) => { $(id).replaceChildren(...modes.map((m) => {
+    const i = el("i", { className: kind === "line" ? "ln" : "" }); i.style.background = MODE[m].c;
+    return el("span", {}, [i, MODE[m].name]); })); };
+
+  function kpiFor(circ) { return circ === "(todos)" ? DATA.kpi_all : DATA.kpi.filter((r) => r.circuit_id === circ); }
+
+  function tiles(circ) {
+    const rows = kpiFor(circ), g = rows.find((r) => r.mode === "guiado"), b = rows.find((r) => r.mode === "componente_a_componente");
+    const spec = [
+      { l: "Sucesso no reparo", v: pct(g.success_rate), d: (g.success_rate - b.success_rate) * 100, unit: "p.p.", up: true,
+        txt: (d) => `${d >= 0 ? "+" : "−"}${pt(Math.abs(d), 1)} p.p. contra ${pct(b.success_rate)} no método atual` },
+      { l: "Passos até a decisão", v: pt(g.avg_steps, 1), d: g.avg_steps - b.avg_steps, up: false,
+        txt: (d) => `${d >= 0 ? "+" : "−"}${pt(Math.abs(d), 1)} passos contra ${pt(b.avg_steps, 1)} no método atual` },
+      { l: "Tempo médio por diagnóstico", v: pt(g.avg_duration_min, 1) + " min", d: g.avg_duration_min - b.avg_duration_min, up: false,
+        txt: (d) => `${d >= 0 ? "+" : "−"}${pt(Math.abs(d), 1)} min contra ${pt(b.avg_duration_min, 1)} min (premissa de tempo por passo)` },
+    ];
+    $("tiles").replaceChildren(...spec.map((s) => {
+      const good = s.up ? s.d >= 0 : s.d <= 0;
+      return el("div", { className: "card tile" }, [el("div", { className: "lbl", textContent: s.l }),
+        el("div", { className: "val", textContent: s.v }),
+        el("div", { className: "delta " + (good ? "good" : "bad"), textContent: (good ? "▲ " : "▼ ") + s.txt(s.d) })]);
+    }));
+  }
+
+  function chartA(circ) {
+    const list = circ === "(todos)" ? DATA.circuits : DATA.circuits.filter((c) => c.id === circ);
+    const max = Math.max(...DATA.kpi.map((r) => r.avg_steps)) * 1.15;
+    const wrap = el("div");
+    list.forEach((c) => {
+      const g = el("div", { className: "group" }, [el("div", { className: "gname", textContent: c.nome })]);
+      ORDER.forEach((m) => {
+        const r = DATA.kpi.find((x) => x.circuit_id === c.id && x.mode === m);
+        const bar = el("div", { className: "bar" }); bar.style.width = (r.avg_steps / max * 100) + "%"; bar.style.background = MODE[m].c;
+        const hit = el("div", { className: "hit", tabIndex: 0 }, [el("div", { className: "row" }, [
+          el("div", { className: "track" }, [bar]), el("div", { className: "rv", textContent: pt(r.avg_steps, 2) })])]);
+        hit.setAttribute("aria-label", `${c.nome}, ${MODE[m].name}: ${pt(r.avg_steps, 2)} passos`);
+        const tipNodes = () => [el("div", { className: "nm", textContent: c.nome }),
+          el("div", {}, [key(m), el("b", { textContent: pt(r.avg_steps, 2) + " passos" })]),
+          el("div", { className: "nm", textContent: `${MODE[m].name} · ${r.n_sessions} sessões · sucesso ${pct(r.success_rate)}` })];
+        hit.addEventListener("pointermove", (e) => showTip(e, tipNodes()));
+        hit.addEventListener("pointerleave", hideTip);
+        hit.addEventListener("focus", () => { const b = hit.getBoundingClientRect(); showTip({ clientX: b.left + 40, clientY: b.bottom - 10 }, tipNodes()); });
+        hit.addEventListener("blur", hideTip);
+        g.append(hit);
+      });
+      wrap.append(g);
+    });
+    $("chartA").replaceChildren(wrap);
+    const rows = [];
+    list.forEach((c) => ORDER.forEach((m) => { const r = DATA.kpi.find((x) => x.circuit_id === c.id && x.mode === m);
+      rows.push([c.nome, MODE[m].name, pt(r.avg_steps, 2), pct(r.success_rate), r.n_sessions]); }));
+    table($("tblA"), ["Circuito", "Método", "Passos médios", "Sucesso", "Sessões"], rows, [2, 3, 4]);
+  }
+
+  function table(host, head, rows, numCols = []) {
+    const t = el("table", {}, [el("thead", {}, [el("tr", {}, head.map((h) => el("th", { textContent: h })))]),
+      el("tbody", {}, rows.map((r) => el("tr", {}, r.map((v, i) => el("td", { className: numCols.includes(i) ? "n" : "", textContent: String(v) })))))]);
+    host.replaceChildren(t);
+  }
+
+  function chartB(circ) {
+    const modes = ["guiado", "medicao_aleatoria"];
+    const rows = DATA.conv.filter((r) => circ === "(todos)" || r.circuit_id === circ);
+    const steps = [...new Set(rows.map((r) => r.step))].sort((a, b) => a - b).filter((s) => s <= 6);
+    const series = {};
+    modes.forEach((m) => { series[m] = steps.map((s) => {
+      const rs = rows.filter((r) => r.mode === m && r.step === s), n = rs.reduce((a, r) => a + r.n_sessions, 0);
+      return { s, n, v: n ? rs.reduce((a, r) => a + r.top1_correct_rate * r.n_sessions, 0) / n : null }; }); });
+    const host = $("chartB"), W = Math.max(280, host.clientWidth || 480), H = 230, L = 36, R = 20, T = 12, B = 30;
+    const x = (i) => L + (steps.length < 2 ? 0 : i * (W - L - R) / (steps.length - 1)), y = (v) => T + (1 - v) * (H - T - B);
+    const NS = "http://www.w3.org/2000/svg", se = (t, a) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
+    const svg = se("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", height: H, role: "img", "aria-label": "Acerto do suspeito principal por medição" });
+    [0, 0.25, 0.5, 0.75, 1].forEach((t) => { svg.append(se("line", { x1: L, x2: W - R, y1: y(t), y2: y(t), stroke: "var(--grid)", "stroke-width": 1 }));
+      const tx = se("text", { x: L - 6, y: y(t) + 4, "text-anchor": "end" }); tx.textContent = Math.round(t * 100) + "%"; svg.append(tx); });
+    svg.append(se("line", { x1: L, x2: W - R, y1: y(0), y2: y(0), stroke: "var(--axis)", "stroke-width": 1 }));
+    steps.forEach((s, i) => { const tx = se("text", { x: x(i), y: H - 8, "text-anchor": "middle" }); tx.textContent = s; svg.append(tx); });
+    const ax = se("text", { x: (L + W - R) / 2, y: H - 0, "text-anchor": "middle" }); ax.textContent = ""; svg.append(ax);
+    modes.forEach((m) => {
+      const pts = series[m].filter((p) => p.v !== null);
+      svg.append(se("polyline", { points: pts.map((p) => `${x(steps.indexOf(p.s))},${y(p.v)}`).join(" "), fill: "none", stroke: MODE[m].c, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+      pts.forEach((p) => svg.append(se("circle", { cx: x(steps.indexOf(p.s)), cy: y(p.v), r: 4, fill: MODE[m].c, stroke: "var(--surface)", "stroke-width": 2 })));
+      const last = pts[pts.length - 1];
+      if (last) { const tx = se("text", { x: x(steps.indexOf(last.s)), y: y(last.v) + (m === "guiado" ? -10 : 18), "text-anchor": "end" });
+        tx.style.fill = "var(--ink)"; tx.textContent = pct(last.v); svg.append(tx); }
+    });
+    const cross = se("line", { y1: T, y2: H - B, stroke: "var(--axis)", "stroke-width": 1, visibility: "hidden" }); svg.append(cross);
+    const over = se("rect", { x: L, y: T, width: W - L - R, height: H - T - B, fill: "transparent", tabindex: 0 }); svg.append(over);
+    const at = (e) => { const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) * (W / r.width);
+      let best = 0, bd = 1e9; steps.forEach((s, i) => { const d = Math.abs(x(i) - px); if (d < bd) { bd = d; best = i; } }); return best; };
+    const tipFor = (i) => [el("div", { className: "nm", textContent: `Após ${steps[i]} medição${steps[i] > 1 ? "ões" : ""}` }),
+      ...modes.map((m) => { const p = series[m][i]; return el("div", {}, [key(m), el("b", { textContent: p.v === null ? "—" : pct(p.v) }),
+        el("span", { className: "nm", textContent: ` ${MODE[m].name} · n=${p.n}` })]); })];
+    over.addEventListener("pointermove", (e) => { const i = at(e); cross.setAttribute("x1", x(i)); cross.setAttribute("x2", x(i)); cross.setAttribute("visibility", "visible"); showTip(e, tipFor(i)); });
+    over.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); hideTip(); });
+    host.replaceChildren(svg);
+    table($("tblB"), ["Medições", ...modes.map((m) => MODE[m].name + " (acerto)"), ...modes.map((m) => "n " + (m === "guiado" ? "guiado" : "aleatória"))],
+      steps.map((s, i) => [s, ...modes.map((m) => series[m][i].v === null ? "—" : pct(series[m][i].v)), ...modes.map((m) => series[m][i].n)]), [0, 1, 2, 3, 4]);
+  }
+
+  function sepTable(circ) {
+    const sum = DATA.sep_summary.filter((r) => circ === "(todos)" || r.circuit_id === circ);
+    const n = (c) => sum.filter((r) => r.class === c).reduce((a, r) => a + r.pairs, 0);
+    const tot = sum.reduce((a, r) => a + r.pairs, 0);
+    $("cSum").textContent = `${tot} pares de falhas de componentes diferentes: ${n("distinguivel_por_tensao")} se separam só com tensão, ${n("requer_corrente")} exigem medir corrente e ${n("indistinguivel_eletricamente")} não se separam com o multímetro (use o teste de confirmação com o circuito desligado).`;
+    const rows = DATA.ambiguous.filter((r) => circ === "(todos)" || r.circuit_id === circ)
+      .sort((a, b) => a.dist_all - b.dist_all).slice(0, 14)
+      .map((r) => [DATA.circuits.find((c) => c.id === r.circuit_id).nome, r.fault_a, r.fault_b, pt(r.dist_voltage, 2), pt(r.dist_all, 2), CLS[r.class]]);
+    table($("tblC"), ["Circuito", "Falha A", "Falha B", "Distância (tensão)", "Distância (tensão+corrente)", "Situação"], rows.length ? rows : [["Nenhum par ambíguo neste filtro", "", "", "", "", ""]], [3, 4]);
+  }
+
+  function dqTable() {
+    const rows = DATA.dq.map((r) => { const ok = r.failed === 0;
+      return [r.layer, r.dataset, r.rule, r.checked, r.failed, (ok ? "✓ passou" : (r.severity === "error" ? "✕ erro" : "! aviso"))]; });
+    table($("tblD"), ["Camada", "Dataset", "Regra", "Verificados", "Falhas", "Estado"], rows, [3, 4]);
+  }
+
+  legend("legA", "bar", ORDER); legend("legB", "line", ["guiado", "medicao_aleatoria"]);
+  function render() { const c = $("circ").value; tiles(c); chartA(c); chartB(c); sepTable(c); }
+  $("circ").onchange = render; dqTable(); render();
+  let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => chartB($("circ").value), 120); });
+})();
+</script>

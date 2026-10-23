@@ -1,0 +1,404 @@
+<title>EletroDiag</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: bancada de medição. Esquema e medição à esquerda, suspeitos e diagnóstico à direita. */
+:root {
+  --bg: #f1f4f6; --surface: #ffffff; --fg: #14202b; --muted: #556675; --line: #d3dce3;
+  --accent: #0a6c6c; --accent-fg: #ffffff; --accent-soft: #d8eeed;
+  --warn: #8f5300; --warn-soft: #fbebcd; --bad: #b3261e; --good: #17743a; --good-soft: #d7f0e0;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d141a; --surface: #151f28; --fg: #e5ecf1; --muted: #93a4b2; --line: #26333e;
+    --accent: #4fd1c5; --accent-fg: #06201e; --accent-soft: #11322f;
+    --warn: #f0b34a; --warn-soft: #382a0f; --bad: #ff8a80; --good: #6fd08c; --good-soft: #14301f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d141a; --surface: #151f28; --fg: #e5ecf1; --muted: #93a4b2; --line: #26333e;
+  --accent: #4fd1c5; --accent-fg: #06201e; --accent-soft: #11322f;
+  --warn: #f0b34a; --warn-soft: #382a0f; --bad: #ff8a80; --good: #6fd08c; --good-soft: #14301f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--font-body);
+  padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 960px; margin: 0 auto; display: grid; gap: 16px; }
+h1, h2, h3, p { margin: 0; }
+h1 { font-size: 1.35rem; font-weight: 600; letter-spacing: -0.01em; }
+h2 { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.top p { color: var(--muted); font-size: 0.9rem; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.setup { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); align-items: end; }
+.field { display: grid; gap: 4px; min-width: 0; }
+.field label, .lbl { font-size: 0.8rem; color: var(--muted); }
+select, input[type="text"] {
+  font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 7px; padding: 9px 10px; min-width: 0; width: 100%;
+}
+input.mono { font-family: var(--font-mono); font-size: 1.05rem; }
+select:focus-visible, input:focus-visible, button:focus-visible, summary:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.hazard { background: var(--warn-soft); color: var(--warn); border: 1px solid var(--warn); border-radius: 8px; padding: 10px 12px; font-size: 0.88rem; font-weight: 500; }
+.check { display: flex; gap: 8px; align-items: center; font-size: 0.92rem; padding-block: 9px; }
+.check input { width: 18px; height: 18px; accent-color: var(--accent); }
+button {
+  font: inherit; font-weight: 500; border-radius: 7px; padding: 9px 14px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--fg);
+}
+button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+button:hover { filter: brightness(0.96); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+.layout { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 860px) {
+  .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  .col { display: grid; gap: 16px; min-width: 0; }
+}
+.col { display: grid; gap: 16px; min-width: 0; }
+.sch-box { display: grid; place-items: center; }
+svg.sch { width: 100%; max-width: 360px; height: auto; color: var(--fg); }
+svg.sch .w { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+svg.sch .cl { fill: currentColor; font: 500 11px var(--font-mono); }
+svg.sch .nd circle { fill: var(--surface); stroke: var(--accent); stroke-width: 1.8; }
+svg.sch .nd .nl { fill: var(--accent); font: 600 11px var(--font-mono); }
+svg.sch .nd.active circle { fill: var(--accent); }
+svg.sch .nd.active .nl { font-size: 13px; }
+.legend { font-size: 0.82rem; color: var(--muted); }
+.hint { background: var(--accent-soft); border-radius: 8px; padding: 10px 12px; font-size: 0.9rem; }
+.expect { font-family: var(--font-mono); font-size: 0.9rem; color: var(--muted); }
+.expect b { color: var(--fg); font-weight: 500; }
+.entry { display: grid; grid-template-columns: minmax(0, 1fr) 92px; gap: 8px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.err { color: var(--bad); font-size: 0.88rem; min-height: 1.2em; }
+.status { border-radius: 8px; padding: 12px; display: grid; gap: 2px; }
+.status strong { font-size: 1.02rem; }
+.status.ok { background: var(--good-soft); color: var(--fg); }
+.status.doubt { background: var(--warn-soft); }
+.status.start { background: var(--accent-soft); }
+.suspects { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.sus { display: grid; grid-template-columns: 54px minmax(0, 1fr) 44px; gap: 8px; align-items: center; }
+.sus .id { font-family: var(--font-mono); font-weight: 500; }
+.sus .nm { font-size: 0.78rem; color: var(--muted); grid-column: 2 / 4; margin-top: -6px; }
+.bar { height: 10px; border-radius: 5px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); }
+.sus.top .bar i { background: var(--good); }
+.sus .pc { font-family: var(--font-mono); font-size: 0.85rem; text-align: right; }
+.detail { display: grid; gap: 8px; font-size: 0.92rem; }
+.detail dt { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.detail dd { margin: 0 0 4px; }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-size: 0.75rem; color: var(--muted); font-weight: 500; }
+td.num { font-family: var(--font-mono); }
+.flag { color: var(--warn); font-size: 0.8rem; }
+.empty { color: var(--muted); font-size: 0.9rem; }
+details { border-top: 1px solid var(--line); padding-top: 10px; }
+summary { cursor: pointer; font-size: 0.88rem; color: var(--muted); }
+textarea { width: 100%; min-height: 120px; font: 0.78rem/1.4 var(--font-mono); background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 7px; padding: 8px; margin-top: 8px; }
+.note { font-size: 0.82rem; color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { .bar i { transition: width 0.25s ease; } }
+</style>
+<!--BODY-->
+<div class="wrap">
+  <header class="top">
+    <h1>EletroDiag</h1>
+    <p>Diagnóstico guiado de defeitos em circuitos: meça onde o app indicar e ele aponta o componente suspeito.</p>
+  </header>
+
+  <section class="card setup" aria-label="Configuração da sessão">
+    <div class="field"><label for="circuitSel">Circuito</label><select id="circuitSel"></select></div>
+    <div class="field"><label for="levelSel">Seu nível</label>
+      <select id="levelSel"><option value="iniciante">Iniciante</option><option value="intermediario">Intermediário</option><option value="avancado">Avançado</option></select></div>
+    <label class="check"><input type="checkbox" id="training" checked> Modo treino (o app sorteia um defeito)</label>
+    <button class="primary" id="newBtn" type="button">Nova sessão</button>
+  </section>
+
+  <div class="layout">
+    <div class="col">
+      <section class="card" aria-label="Esquema">
+        <h2 id="circName">Esquema</h2>
+        <p class="legend" id="circDesc"></p>
+        <p class="hazard" id="circHazard" role="alert" hidden></p>
+        <p class="legend" id="circNota" hidden></p>
+        <div class="sch-box" id="schBox"></div>
+        <p class="legend">Os pontos marcados são os nós de medição. O ponto preenchido é o que o app sugere agora.</p>
+      </section>
+
+      <section class="card" aria-label="Próxima medição" id="measureCard">
+        <h2>Próxima medição</h2>
+        <div class="field"><label for="obsSel">Ponto de medição</label><select id="obsSel"></select></div>
+        <p class="hint" id="obsHow"></p>
+        <p class="expect" id="obsExpect"></p>
+        <div class="entry">
+          <div class="field"><label for="valIn">Leitura do multímetro</label>
+            <input id="valIn" class="mono" type="text" inputmode="decimal" autocomplete="off" placeholder="ex.: 4,73"></div>
+          <div class="field"><label for="unitSel">Unidade</label><select id="unitSel"></select></div>
+        </div>
+        <p class="err" id="err" role="alert"></p>
+        <div class="actions">
+          <button class="primary" id="addBtn" type="button">Registrar medição</button>
+          <button id="simBtn" type="button">Preencher com leitura simulada</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="card" aria-label="Diagnóstico">
+        <h2>Suspeitos</h2>
+        <div id="status"></div>
+        <ul class="suspects" id="suspects"></ul>
+        <dl class="detail" id="detail"></dl>
+      </section>
+
+      <section class="card" aria-label="Medições e encerramento">
+        <h2>Medições da sessão</h2>
+        <div class="tbl" id="measTbl"></div>
+        <div id="finishBox"></div>
+        <details>
+          <summary>Eventos da sessão (formato de ingestão do pipeline)</summary>
+          <textarea id="events" readonly aria-label="Eventos em JSON Lines"></textarea>
+          <div class="actions" style="margin-top:8px"><button id="copyBtn" type="button">Copiar eventos</button></div>
+          <p class="note" id="copyNote"></p>
+        </details>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>/*__DIAGNOSE_JS__*/</script>
+<script>
+const DICT = /*__DICTIONARY__*/null;
+(function () {
+  const { Diagnoser, parseMeasurement } = EletroDiag;
+  const $ = (id) => document.getElementById(id);
+  const APP_VERSION = "0.1.0";
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const pt = (n, d) => n.toFixed(d).replace(".", ",");
+  const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
+  const learnerId = uid().replace(/-/g, "").slice(0, 12);
+
+  function fmtVal(v, kind) {
+    if (kind === "V") return pt(v, Math.abs(v) < 1 ? 3 : 2) + " V";
+    if (Math.abs(v) >= 1) return pt(v, 2) + " A";
+    const ma = v * 1000;
+    return pt(ma, Math.abs(ma) < 20 ? 2 : 1) + " mA";
+  }
+  function isoLocal(d) {
+    const p = (n) => String(n).padStart(2, "0"), off = -d.getTimezoneOffset(), a = Math.abs(off);
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}` +
+      `${off >= 0 ? "+" : "-"}${p(Math.floor(a / 60))}:${p(a % 60)}`;
+  }
+  function randn() { return Math.sqrt(-2 * Math.log(1 - Math.random())) * Math.cos(2 * Math.PI * Math.random()); }
+
+  let S = null;
+
+  function emit(type, payload) {
+    const ev = { event_id: uid(), event_type: type, ts: isoLocal(new Date()), session_id: S.sessionId,
+      learner_id: learnerId, app_version: APP_VERSION, payload };
+    S.events.push(ev);
+    try { if (window.ELETRODIAG_INGEST_URL) fetch(window.ELETRODIAG_INGEST_URL, { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify(ev) }).catch(() => {}); } catch (e) {}
+  }
+
+  function newSession() {
+    const c = DICT.circuits.find((x) => x.id === $("circuitSel").value);
+    S = { c, dg: new Diagnoser(c, DICT.meter_model), meas: [], events: [], sessionId: "s-" + uid().replace(/-/g, "").slice(0, 14),
+      training: $("training").checked, truth: null, finished: false, shownAt: performance.now(), selected: null };
+    if (S.training) {
+      let r = Math.random(), acc = 0;
+      for (let i = 0; i < S.dg.prior.length; i++) { acc += S.dg.prior[i]; if (r <= acc) { S.truth = S.c.faults[i]; break; } }
+      S.truth = S.truth || S.c.faults[0];
+    }
+    emit("session_started", { circuit_id: c.id, mode: "guiado", level: $("levelSel").value,
+      device: window.innerWidth < 700 ? "mobile" : "desktop" });
+    S.selected = null;
+    renderAll();
+  }
+
+  const measMap = () => { const m = {}; S.meas.forEach((x) => (m[x.oid] = x.value)); return m; };
+  const posterior = () => (S.meas.length ? S.dg.posterior(measMap()) : S.dg.prior.slice());
+  const obsById = (oid) => S.c.observables.find((o) => o.id === oid);
+
+  function suggestion(post) {
+    const ranking = S.dg.rankNext(post, new Set(S.meas.map((m) => m.oid)));
+    return ranking.length ? ranking[0].observable_id : null;
+  }
+
+  function renderAll() {
+    const c = S.c;
+    $("circName").textContent = c.nome;
+    $("circDesc").textContent = c.descricao;
+    $("circHazard").textContent = c.hazard ? "⚠ Segurança: " + c.hazard : "";
+    $("circHazard").hidden = !c.hazard;
+    $("circNota").textContent = c.nota ? "Limites do modelo: " + c.nota : "";
+    $("circNota").hidden = !c.nota;
+    $("schBox").innerHTML = c.svg;
+    const post = posterior();
+    const sug = suggestion(post);
+    if (!S.selected || !obsById(S.selected)) S.selected = sug || c.observables[0].id;
+    renderMeasureCard(sug);
+    renderResult(post);
+    renderLog(post);
+    renderFinish(post);
+    $("events").value = S.events.map((e) => JSON.stringify(e)).join("\n");
+    highlight();
+  }
+
+  function highlight() {
+    document.querySelectorAll("#schBox .nd").forEach((n) => n.classList.remove("active"));
+    const o = obsById(S.selected);
+    if (o && o.kind === "V") {
+      const n = document.querySelector(`#schBox .nd[data-node="${o.ref}"]`);
+      if (n) n.classList.add("active");
+    }
+  }
+
+  function renderMeasureCard(sug) {
+    const taken = new Set(S.meas.map((m) => m.oid));
+    $("obsSel").innerHTML = S.c.observables.map((o) => {
+      const tag = o.id === sug ? " · sugerida" : taken.has(o.id) ? " · repetir" : "";
+      const eff = o.kind === "I" ? " (abre o ramo)" : "";
+      return `<option value="${esc(o.id)}"${o.id === S.selected ? " selected" : ""}>${esc(o.id)}${eff}${tag}</option>`;
+    }).join("");
+    updateObs();
+    const dis = S.finished;
+    ["obsSel", "valIn", "unitSel", "addBtn", "simBtn"].forEach((id) => ($(id).disabled = dis));
+    $("simBtn").hidden = !S.training;
+  }
+
+  function updateObs() {
+    const o = obsById(S.selected);
+    $("obsHow").textContent = o.onde;
+    const b = S.c.baseline[o.id];
+    $("obsExpect").innerHTML = `Valor esperado com o circuito saudável: <b>${fmtVal(b[0], o.kind)}</b>`;
+    $("unitSel").innerHTML = (o.kind === "V" ? ["V", "mV"] : ["mA", "A", "µA"]).map((u) => `<option>${u}</option>`).join("");
+    highlight();
+  }
+
+  function renderResult(post) {
+    const dg = S.dg, cp = dg.componentPosterior(post);
+    const rows = Object.entries(cp).sort((a, b) => b[1] - a[1]);
+    const [topC, topP] = rows[0];
+    const n = S.meas.length;
+    const remaining = S.c.observables.some((o) => !S.meas.some((m) => m.oid === o.id));
+    let cls = "start", title = "Faça a primeira medição", text = "As probabilidades abaixo ainda são só o ponto de partida.";
+    if (n > 0 && topP >= DICT.confidence_stop && n >= DICT.min_measurements) {
+      cls = "ok"; title = `Diagnóstico provável: ${topC}`; text = `${Math.round(topP * 100)}% de confiança. Confirme com o teste indicado antes de trocar.`;
+    } else if (n > 0 && !remaining) {
+      cls = "doubt"; title = "Medições esgotadas, ainda há dúvida";
+      text = `Use os testes de confirmação em ${rows[0][0]} e ${rows[1][0]} com o circuito desligado.`;
+    } else if (n > 0) {
+      cls = "doubt"; title = "Continue medindo"; text = `Melhor suspeito agora: ${topC} (${Math.round(topP * 100)}%).`;
+    }
+    $("status").innerHTML = `<div class="status ${cls}"><strong>${esc(title)}</strong><span>${esc(text)}</span></div>`;
+    const comps = Object.fromEntries(S.c.components.map((c) => [c.id, c]));
+    $("suspects").innerHTML = rows.slice(0, 6).map(([id, p], i) =>
+      `<li class="sus${i === 0 && n > 0 ? " top" : ""}"><span class="id">${esc(id)}</span>` +
+      `<div class="bar"><i style="width:${(p * 100).toFixed(1)}%"></i></div><span class="pc">${p < 0.01 ? "<1" : Math.round(p * 100)}%</span>` +
+      `<span class="nm">${esc(comps[id].funcao)} · ${esc(comps[id].nominal)}</span></li>`).join("");
+    const f = dg.topFaultOf(post, topC);
+    let html = `<dt>Defeito mais provável</dt><dd>${esc(f.descricao)}</dd><dt>Como confirmar</dt><dd>${esc(f.teste_confirmacao)}</dd><dt>O que fazer</dt><dd>${esc(f.acao)}</dd>`;
+    if (n > 0 && cls === "doubt" && rows[1][1] > 0.15) {
+      const f2 = dg.topFaultOf(post, rows[1][0]);
+      html += `<dt>Segunda hipótese (${Math.round(rows[1][1] * 100)}%)</dt><dd>${esc(f2.descricao)}</dd>`;
+    }
+    $("detail").innerHTML = n > 0 ? html : "";
+  }
+
+  function renderLog(post) {
+    if (!S.meas.length) { $("measTbl").innerHTML = '<p class="empty">Nenhuma medição ainda.</p>'; return; }
+    const cp = S.dg.componentPosterior(post);
+    const topC = Object.entries(cp).sort((a, b) => b[1] - a[1])[0][0];
+    const topFaultIdx = S.dg.faults.indexOf(S.dg.topFaultOf(post, topC));
+    const rows = S.meas.map((m, i) => {
+      const o = obsById(m.oid), exp = S.c.baseline[m.oid][0];
+      const z = S.dg.zScore(topFaultIdx, m.oid, m.value);
+      const flag = z > 4 ? '<span class="flag">fora do esperado, repita</span>' : "";
+      return `<tr><td>${i + 1}</td><td>${esc(m.oid)}</td><td class="num">${fmtVal(m.value, o.kind)}</td><td class="num">${fmtVal(exp, o.kind)}</td><td>${flag}</td></tr>`;
+    }).join("");
+    $("measTbl").innerHTML = `<table><thead><tr><th>#</th><th>Ponto</th><th>Medido</th><th>Saudável</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  function renderFinish(post) {
+    const box = $("finishBox");
+    if (S.finished) {
+      box.innerHTML = `<p class="hint">Sessão encerrada.${S.training && S.truth ? " O defeito sorteado era: <b>" + esc(S.truth.id) + "</b> (" + esc(S.truth.descricao) + ")" : ""}</p>`;
+      return;
+    }
+    const cp = S.dg.componentPosterior(post);
+    const top = Object.entries(cp).sort((a, b) => b[1] - a[1])[0][0];
+    const opts = S.c.components.map((c) => `<option value="${esc(c.id)}"${c.id === top ? " selected" : ""}>${esc(c.id)}</option>`).join("");
+    box.innerHTML = `<div class="entry" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr)">
+      <div class="field"><label for="repSel">Componente trocado</label><select id="repSel">${opts}</select></div>
+      <div class="field"><label for="outSel">Resultado</label><select id="outSel"><option value="reparado">Reparou</option><option value="troca_errada">Não resolveu</option><option value="desistiu">Desisti</option></select></div></div>
+      <div class="actions"><button id="finBtn" type="button">Encerrar sessão</button></div>`;
+    $("finBtn").onclick = finish;
+  }
+
+  function finish() {
+    const out = $("outSel").value, rep = out === "desistiu" ? null : $("repSel").value;
+    const cp = S.dg.componentPosterior(posterior());
+    const conf = Math.max(...Object.values(cp)) >= DICT.confidence_stop;
+    emit("session_finished", { outcome: out, replaced_component: rep, stop_reason: out === "desistiu" ? "abandono" : conf ? "confianca" : "manual", n_steps: S.meas.length });
+    S.finished = true;
+    renderAll();
+  }
+
+  function addMeasurement() {
+    $("err").textContent = "";
+    const o = obsById(S.selected), raw = $("valIn").value;
+    const r = parseMeasurement(raw, $("unitSel").value, o.kind);
+    if (r.error) { $("err").textContent = "Não entendi a leitura. Digite só o número, por exemplo 4,73."; return; }
+    const sugBefore = suggestion(posterior());
+    const dur = Math.round((performance.now() - S.shownAt) / 100) / 10;
+    S.meas.push({ oid: o.id, value: r.value, raw });
+    emit("measurement_taken", { step: S.meas.length, observable_id: o.id, raw_value: raw, unit_raw: $("unitSel").value,
+      duration_s: dur, followed_suggestion: sugBefore === o.id });
+    const post = posterior(), cp = S.dg.componentPosterior(post);
+    const top = Object.entries(cp).sort((a, b) => b[1] - a[1])[0];
+    emit("diagnosis_shown", { step: S.meas.length, top_component: top[0], top_fault: S.dg.topFaultOf(post, top[0]).id, top_prob: Math.round(top[1] * 10000) / 10000 });
+    $("valIn").value = "";
+    S.selected = null;
+    S.shownAt = performance.now();
+    renderAll();
+  }
+
+  function simulatedReading() {
+    const o = obsById(S.selected), [m, s] = S.truth.signature[o.id];
+    const v = m + randn() * s;
+    const res = o.kind === "V" ? (Math.abs(v) >= 2 ? 0.01 : 0.001) : 1e-5;
+    const r = Math.round(v / res) * res;
+    if (o.kind === "V") { $("unitSel").value = "V"; $("valIn").value = pt(r, Math.abs(v) >= 2 ? 2 : 3); }
+    else if (Math.abs(r) >= 1) { $("unitSel").value = "A"; $("valIn").value = pt(r, 2); }
+    else { $("unitSel").value = "mA"; $("valIn").value = pt(r * 1000, 2); }
+  }
+
+  async function copyEvents() {
+    const ta = $("events");
+    try { await navigator.clipboard.writeText(ta.value); $("copyNote").textContent = "Eventos copiados."; }
+    catch (e) { ta.select(); $("copyNote").textContent = "Selecione e copie o texto acima."; }
+  }
+
+  $("circuitSel").innerHTML = DICT.circuits.map((c) => `<option value="${c.id}">${esc(c.nome)}</option>`).join("");
+  $("circuitSel").onchange = newSession;
+  $("newBtn").onclick = newSession;
+  $("obsSel").onchange = (e) => { S.selected = e.target.value; updateObs(); };
+  $("addBtn").onclick = addMeasurement;
+  $("valIn").addEventListener("keydown", (e) => { if (e.key === "Enter") addMeasurement(); });
+  $("simBtn").onclick = simulatedReading;
+  $("copyBtn").onclick = copyEvents;
+  newSession();
+})();
+</script>
