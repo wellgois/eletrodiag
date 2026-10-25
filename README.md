@@ -64,7 +64,7 @@ Requisitos: Python 3.11+ (testado em 3.13). Node 18+ só para o teste de paridad
 ```bash
 pip install -r requirements.txt
 make demo            # pipeline completo do zero (~25 s), gera app e painel
-make test            # 68 testes
+make test            # 71 testes
 ```
 
 Sem `make`:
@@ -91,13 +91,13 @@ Depois do `make demo`, abra:
 
 | Etapa | Volume |
 |---|---|
-| Biblioteca | 10 circuitos (5 básicos e 5 blocos de inversor), 73 componentes, 55 pontos de medição, 261 falhas |
-| Bronze `sim_runs` | 41.250 simulações (150 Monte Carlo × 275 hipóteses: 265 defeitos + 10 circuitos saudáveis) |
-| Silver `sim_runs` | 454.800 linhas, 0 não-convergências |
-| Bronze `app_events` | 84.360 eventos de 9.000 sessões, em 8 lotes semanais, com sujeira injetada |
-| Silver `sessions` | 8.971 sessões válidas (29 perdidas por linha corrompida do evento inicial) |
-| Quarentena | 316 JSON truncados, 232 eventos órfãos, 94 medições sem observável |
-| Duplicatas removidas | 1.249 eventos |
+| Biblioteca | 10 circuitos (5 básicos e 5 blocos de inversor), 69 componentes, 79 pontos de medição (52 de tensão e corrente, 27 de teste a frio), 254 falhas |
+| Bronze `sim_runs` | 39.600 simulações (150 Monte Carlo × 264 hipóteses: 254 defeitos + 10 circuitos saudáveis) |
+| Silver `sim_runs` | 425.850 linhas, 0 não-convergências |
+| Bronze `app_events` | 81.787 eventos de 9.000 sessões, em 8 lotes semanais, com sujeira injetada |
+| Silver `sessions` | 8.966 sessões válidas (34 perdidas por linha corrompida do evento inicial) |
+| Quarentena | 298 JSON truncados, 251 eventos órfãos, 107 medições sem observável |
+| Duplicatas removidas | 1.164 eventos |
 | Gold | 17 tabelas + 10 views de BI + `dictionary.json` |
 | Qualidade | 29 regras, 0 erros, 7 avisos (todos esperados, ver [data_quality.md](docs/data_quality.md)) |
 
@@ -105,21 +105,21 @@ A sujeira (duplicatas, linhas truncadas, vírgula decimal, unidades misturadas, 
 
 ## Resultados da simulação
 
-Pareado: cada defeito é "resolvido" pelos três métodos. 8.858 sessões concluídas, 10 circuitos, 265 defeitos (inclui 10 falhas encadeadas), medição de tensão, corrente e teste a frio.
+Pareado: cada defeito é "resolvido" pelos três métodos. 8.844 sessões concluídas, 10 circuitos, 254 defeitos (inclui 6 falhas encadeadas), medição de tensão, corrente e teste a frio.
 
 | Método | Sucesso | Troca errada | Passos (média) | Passos (p90) | Tempo (min) |
 |---|---|---|---|---|---|
-| Componente a componente (método atual) | 79,6% | 17,9% | 4,30 | 9 | 8,5 |
-| Ranking do app, medições em ordem aleatória | 87,6% | 8,6% | 4,78 | 11 | 4,2 |
-| **Guiado pelo app** | **88,6%** | **8,8%** | **3,88** | **10** | **3,1** |
+| Componente a componente (método atual) | 80,7% | 16,7% | 4,05 | 8 | 8,1 |
+| Ranking do app, medições em ordem aleatória | 85,5% | 10,8% | 4,72 | 10 | 4,2 |
+| **Guiado pelo app** | **88,0%** | **10,2%** | **3,83** | **6** | **3,1** |
 
 O que isso **permite** concluir:
 
 - A arquitetura funciona de ponta a ponta e o motor de diagnóstico encontra o componente certo na maior parte dos cenários simulados.
-- Nos blocos do inversor (até 15 componentes) o guiado poupa cerca de metade do tempo; em passos, poupa 15% a 30% nos blocos menores, mas **usa mais passos** que o método atual no primário e na ponte H, porque agora pede também testes a frio.
-- **O teste a frio (diodo/continuidade com a placa desligada) fechou boa parte da lacuna:** dos 692 pares de defeitos indistinguíveis com a placa ligada, 323 passam a ser separáveis a frio e 378 continuam indistinguíveis nos blocos do inversor (9 nos básicos). Primário push-pull: 67% contra 61% do método atual. **Ponte H: 61% contra 64%, ainda sem vantagem** (diferença dentro do ruído de ~300 sessões por célula).
-- **Falhas encadeadas** (ex.: fusível aberto causado por MOSFET em curto) entram como hipóteses com causa e consequência; o app diz para trocar a causa também, e não só o fusível.
-- Os 378 pares que restam são sobretudo falhas mascaradas (MOSFET desligado atrás de caminho paralelo pelo diodo de corpo ou enrolamento) e deriva pequena de resistor de gate.
+- Nos blocos do inversor (até 15 componentes) o guiado poupa de 45% a 73% do tempo. Em passos, poupa de 7% a 28% na entrada, no comando e no barramento, mas **usa mais passos** que o método atual no primário e na ponte H, porque pede também testes a frio.
+- **O teste a frio (diodo/continuidade com a placa desligada) fecha boa parte da lacuna:** dos 864 pares de defeitos que a tensão sozinha não separa, 143 se separam com a corrente, 312 só com o teste a frio e 409 continuam indistinguíveis (400 nos blocos do inversor e 9 nos básicos). Primário push-pull: 65% contra 65% do método atual (empate). **Ponte H: 62% contra 59%** (diferença dentro do ruído de ~300 sessões por célula).
+- **Falhas encadeadas** (ex.: fusível aberto causado por MOSFET em curto, ou os dois IGBTs da mesma perna da ponte H) entram como hipóteses com causa e consequência; o app diz para trocar a causa também, e não só o fusível.
+- Os 400 pares que restam nos blocos do inversor são sobretudo falhas mascaradas (MOSFET desligado atrás de caminho paralelo pelo diodo de corpo ou enrolamento) e deriva pequena de resistor de gate.
 - Existe um **teto de acerto** de origem física: ele é pequeno nos circuitos básicos (9 pares) e grande nos blocos do inversor. O app avisa e manda confirmar com teste de componente.
 
 O que **não** permite concluir: que estudantes reais serão 68% mais rápidos. O tempo depende de uma premissa (testar um componente custa 110 s, medir uma tensão custa 35 s). A [análise de sensibilidade](docs/sensitivity.md) mostra que, se o método atual for perfeito, o app fica abaixo em sucesso (89% contra 97%). A decisão de seguir deve vir de um piloto com estudantes de verdade.
@@ -174,17 +174,17 @@ Cada ação gera um evento no formato da bronze. No modo treino, o app sorteia u
 ## Testes
 
 ```bash
-make test    # 68 testes: solver, modelo de falhas, parsing, diagnóstico, pipeline, views, paridade JS x Python
+make test    # 71 testes: solver, modelo de falhas, parsing, diagnóstico, pipeline, views, paridade JS x Python
 ```
 
-Cobrem: leis de circuito (divisor, LED, polarização BJT, zener), MOSFET e regulador (casos analíticos), convergência de todas as 261 falhas dos 10 circuitos, blocos do inversor, parsing de unidades e fusos, recuperação do componente correto com leituras ideais, robustez a uma leitura errada, estrutura medalhão, idempotência da silver, consistência da gold, views de BI e igualdade numérica entre o motor Python e o JavaScript do app.
+Cobrem: leis de circuito (divisor, LED, polarização BJT, zener), MOSFET e regulador (casos analíticos), convergência de todas as 254 falhas dos 10 circuitos, blocos do inversor, parsing de unidades e fusos, recuperação do componente correto com leituras ideais, robustez a uma leitura errada, estrutura medalhão, idempotência da silver, consistência da gold, views de BI e igualdade numérica entre o motor Python e o JavaScript do app.
 
 ## Limitações e honestidade
 
 - **Dados de estudantes são sintéticos.** Comportamento, tempos e taxas de erro são premissas ([assumptions.md](docs/assumptions.md)).
 - **Simulação só em corrente contínua** (ponto de operação). Não há ruído, oscilação nem componentes reativos. Defeitos que só aparecem em CA ficam de fora.
 - **Uma falha por vez** e **modelo de falha simplificado** (aberto, curto, deriva forte, ganho baixo). Falhas intermitentes, solda fria e curtos parciais não existem.
-- **Dez circuitos curados** (5 básicos e 5 blocos de um inversor CC-CA). O valor está na biblioteca de circuitos e falhas. Os blocos do inversor seguem a topologia típica; o esquema real do aparelho de teste ainda não foi levantado (ver [inverter_blocks.md](docs/inverter_blocks.md)).
+- **Dez circuitos curados** (5 básicos e 5 blocos de um inversor CC-CA). O valor está na biblioteca de circuitos e falhas. Os blocos do inversor seguem a placa real do projeto (12 V, 8 MOSFETs AP220N04P, 4 IGBTs IXYS de 330 V, barramento de ~180 V); o que ainda é hipótese está em [inversor_real.md](docs/inversor_real.md) e [inverter_blocks.md](docs/inverter_blocks.md).
 - **Probabilidades a priori são chutes informados** (aberto é 3× mais provável que os outros). Devem ser substituídas por frequências reais.
 - **Ambiguidade elétrica real** limita o acerto: cerca de 95% nos circuitos básicos e bem menos nos blocos do inversor medidos só com o circuito energizado.
 - Conexão com ferramentas de BI externas e a ingestão em nuvem não foram testadas.
